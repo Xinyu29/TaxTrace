@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaxTrace AI · e-Invoicing Compliance</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/1.68.0/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link rel="stylesheet" href="frontend/css/style.css">
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;min-height:100vh">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo">
+      <span class="logo-badge">TT</span>
+      TaxTrace AI
+      <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px">Audit Shield</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:18px">
+      <span class="status-label"><span class="status-dot"></span>Agent running</span>
+      <span class="org-pill">Chin Hin Group Bhd · Finance</span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" onclick="nav('dashboard',this)"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></div>
+      <div class="nav-item" onclick="nav('queue',this)"><i class="ti ti-inbox"></i><span>Invoice queue</span></div>
+      <hr class="nav-divider">
+      <div class="nav-label">AI Features</div>
+      <div class="nav-item" onclick="nav('upload',this)"><i class="ti ti-upload"></i><span>Upload & analyse</span></div>
+      <div class="nav-item" onclick="nav('discrepancy',this)"><i class="ti ti-alert-triangle"></i><span>Discrepancies</span></div>
+      <div class="nav-item" onclick="nav('comms',this)"><i class="ti ti-mail"></i><span>Resolution comms</span></div>
+      <hr class="nav-divider">
+      <div class="nav-label">Insights</div>
+      <div class="nav-item" onclick="nav('analytics',this)"><i class="ti ti-chart-bar"></i><span>Analytics</span></div>
+      <div class="nav-item" onclick="nav('auditlog',this)"><i class="ti ti-list"></i><span>Audit log</span></div>
+    </nav>
+
+    <main class="content">
+
+      <!-- ═══════════════════════════════════════════════════════ DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-title">Compliance overview</div>
+        <div class="page-sub" id="dash-sub">Loading from backend…</div>
+        <div class="metric-row" id="dash-metrics">
+          <div class="metric-card"><div class="metric-label">Invoices today</div><div class="metric-val" id="m-total">—</div></div>
+          <div class="metric-card"><div class="metric-label">Flags raised</div><div class="metric-val warning" id="m-flags">—</div></div>
+          <div class="metric-card"><div class="metric-label">High-risk items</div><div class="metric-val danger" id="m-high">—</div></div>
+          <div class="metric-card"><div class="metric-label">Capital tied up</div><div class="metric-val danger" id="m-capital">—</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Agent pipeline — live status</span>
+            <span class="badge badge-info"><i class="ti ti-player-play"></i> Running</span>
+          </div>
+          <div class="step-flow">
+            <div class="step-node"><div class="step-circle done"><i class="ti ti-file-text"></i></div><div class="step-label">Ingest</div></div>
+            <div class="connector done"></div>
+            <div class="step-node"><div class="step-circle done"><i class="ti ti-zoom-check"></i></div><div class="step-label">Parse & match</div></div>
+            <div class="connector done"></div>
+            <div class="step-node"><div class="step-circle active"><i class="ti ti-shield-check"></i></div><div class="step-label">Risk eval</div></div>
+            <div class="connector"></div>
+            <div class="step-node"><div class="step-circle pending"><i class="ti ti-mail"></i></div><div class="step-label">Resolution</div></div>
+            <div class="connector"></div>
+            <div class="step-node"><div class="step-circle pending"><i class="ti ti-user-check"></i></div><div class="step-label">Human review</div></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Recent high-risk flags</span><span class="badge badge-danger" id="dash-flag-count">—</span></div>
+            <table>
+              <thead><tr><th>Vendor</th><th>Issue</th><th>Impact</th></tr></thead>
+              <tbody id="dash-flags-tbody"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Compliance rate — last 6 weeks</span></div>
+            <div class="legend-row">
+              <span><span class="legend-dot" style="background:#378ADD"></span>Clean</span>
+              <span><span class="legend-dot" style="background:#EF9F27"></span>Minor flag</span>
+              <span><span class="legend-dot" style="background:#E24B4A"></span>High-risk</span>
+            </div>
+            <div class="chart-wrap" style="height:190px"><canvas id="dashChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════ INVOICE QUEUE -->
+      <div class="page" id="page-queue">
+        <div class="page-title">Invoice queue</div>
+        <div class="page-sub">Incoming vendor invoices vs LHDN MyInvois validated records — agent-parsed</div>
+        <div class="filter-row">
+          <button class="filter-btn active" onclick="filterQueue('all',this)">All</button>
+          <button class="filter-btn" onclick="filterQueue('high_risk',this)">High-risk</button>
+          <button class="filter-btn" onclick="filterQueue('minor_flag',this)">Minor flag</button>
+          <button class="filter-btn" onclick="filterQueue('clean',this)">Clean</button>
+          <span id="queue-count" style="margin-left:auto;font-size:12px;color:var(--muted);align-self:center"></span>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Today's queue</span>
+            <span class="badge badge-info"><i class="ti ti-refresh"></i> Live from backend</span>
+          </div>
+          <table>
+            <thead><tr><th>#</th><th>Vendor</th><th>Invoice no.</th><th>Amount (RM)</th><th>SST</th><th>LHDN</th><th>Agent result</th><th>Risk</th><th></th></tr></thead>
+            <tbody id="queue-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════════════════════════ WOW FEATURE: UPLOAD & ANALYSE -->
+      <div class="page" id="page-upload">
+        <div class="page-title">Upload invoice — Live AI analysis</div>
+        <div class="page-sub">Upload any vendor invoice PDF → Claude extracts all fields → cross-validates against LHDN MyInvois → live agent trace</div>
+
+        <!-- Upload zone -->
+        <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
+          <div class="upload-icon"><i class="ti ti-cloud-upload"></i></div>
+          <div class="upload-title">Drop a vendor invoice PDF here</div>
+          <div class="upload-sub">or click to browse · Max 10 MB · PDF only</div>
+          <input type="file" id="file-input" accept=".pdf" onchange="onFileSelect(this)">
+        </div>
+
+        <!-- No API key warning -->
+        <div id="no-key-warn" style="display:none;margin-top:12px;padding:12px 16px;background:var(--amber-light);border-radius:10px;border-left:3px solid var(--amber);font-size:13px;color:var(--amber)">
+          <strong>⚠ ANTHROPIC_API_KEY not set on the backend.</strong> Start the server with <code>ANTHROPIC_API_KEY=sk-ant-... python server.py</code> to enable live AI analysis.
+        </div>
+
+        <!-- Pipeline panel -->
+        <div class="pipeline-panel" id="pipeline-panel">
+          <div class="card" style="margin-top:18px">
+            <div class="card-header">
+              <span class="card-title" id="pipeline-title">Running AI agent pipeline…</span>
+              <span class="badge badge-info" id="pipeline-badge"><span class="spin"><i class="ti ti-loader-2"></i></span> Processing</span>
+            </div>
+
+            <div class="progress-bar-wrap"><div class="progress-bar" id="pipeline-progress"></div></div>
+
+            <!-- 6 step nodes -->
+            <div class="step-flow" id="pipeline-steps">
+              <div class="step-node"><div class="step-circle pending" id="ps-1"><i class="ti ti-file-text"></i></div><div class="step-label">Ingest</div></div>
+              <div class="connector" id="pc-1"></div>
+              <div class="step-node"><div class="step-circle pending" id="ps-2"><i class="ti ti-brain"></i></div><div class="step-label">AI extract</div></div>
+              <div class="connector" id="pc-2"></div>
+              <div class="step-node"><div class="step-circle pending" id="ps-3"><i class="ti ti-database"></i></div><div class="step-label">LHDN lookup</div></div>
+              <div class="connector" id="pc-3"></div>
+              <div class="step-node"><div class="step-circle pending" id="ps-4"><i class="ti ti-shield-check"></i></div><div class="step-label">Risk score</div></div>
+              <div class="connector" id="pc-4"></div>
+              <div class="step-node"><div class="step-circle pending" id="ps-5"><i class="ti ti-mail"></i></div><div class="step-label">Draft email</div></div>
+              <div class="connector" id="pc-5"></div>
+              <div class="step-node"><div class="step-circle pending" id="ps-6"><i class="ti ti-check"></i></div><div class="step-label">Complete</div></div>
+            </div>
+
+            <!-- Live step detail -->
+            <div class="step-detail" id="step-detail"></div>
+          </div>
+
+          <!-- Result sections — shown after pipeline completes -->
+          <div id="result-extracted" style="display:none">
+            <div class="card">
+              <div class="card-header"><span class="card-title">📄 Extracted invoice fields</span><span class="badge badge-success">Claude vision</span></div>
+              <div class="extracted-grid" id="extracted-fields"></div>
+            </div>
+          </div>
+
+          <div id="result-risk" style="display:none">
+            <div class="card">
+              <div class="card-header"><span class="card-title">🛡️ Risk assessment</span><span id="risk-badge" class="badge badge-gray">—</span></div>
+              <div class="result-card" id="risk-result-card">
+                <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
+                  <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:4px">Risk score</div><div class="risk-score-big" id="risk-score-display">—</div></div>
+                  <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:6px">Category</div><div id="risk-category-display" style="font-size:16px;font-weight:600"></div></div>
+                  <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:4px">Capital at risk</div><div id="risk-capital-display" style="font-size:18px;font-weight:600;color:var(--red)"></div></div>
+                </div>
+                <!-- Diff table -->
+                <div id="risk-diff-table"></div>
+              </div>
+              <div class="approve-row">
+                <button class="btn danger" id="btn-send-email"><i class="ti ti-mail"></i> View resolution email</button>
+                <button class="btn" id="btn-hold"><i class="ti ti-player-pause"></i> Hold payment</button>
+                <button class="btn success" id="btn-approve"><i class="ti ti-check"></i> Override & approve</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="result-email" style="display:none">
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">📧 AI-drafted resolution email</span>
+                <div style="display:flex;gap:8px">
+                  <span class="badge badge-warning">Awaiting approval</span>
+                  <button class="btn primary" id="btn-send-now">Send now</button>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">
+                <div><span style="color:var(--muted)">To: </span><span id="email-to" style="color:var(--blue-mid)"></span></div>
+                <div><span style="color:var(--muted)">CC: </span>procurement@chinhingroup.com</div>
+                <div style="grid-column:1/-1"><span style="color:var(--muted)">Subject: </span><strong id="email-subject"></strong></div>
+              </div>
+              <div class="email-preview" id="email-body"></div>
+            </div>
+          </div>
+
+          <!-- Upload another -->
+          <div style="margin-top:14px;text-align:center">
+            <button class="btn" onclick="resetUpload()"><i class="ti ti-refresh"></i> Analyse another invoice</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════ DISCREPANCY DETAIL -->
+      <div class="page" id="page-discrepancy">
+        <div class="page-title">Discrepancy analysis</div>
+        <div class="page-sub">AI-powered cross-validation — PDF vs LHDN MyInvois JSON</div>
+        <div style="display:grid;grid-template-columns:210px 1fr;gap:16px">
+          <div>
+            <div class="card" style="padding:8px 0">
+              <div style="font-size:10.5px;font-weight:600;color:var(--muted);padding:4px 16px 8px;text-transform:uppercase;letter-spacing:.4px">Flagged invoices</div>
+              <div id="disc-list"></div>
+            </div>
+          </div>
+          <div id="disc-detail"></div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════ RESOLUTION COMMS -->
+      <div class="page" id="page-comms">
+        <div class="page-title">Resolution communications</div>
+        <div class="page-sub">Agent-drafted bilingual emails sent to vendors and internal buyers</div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Draft — Matahari Trading Sdn Bhd · MT-2026-0891</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="badge badge-warning" id="comms-draft-status">Awaiting approval</span>
+              <button class="btn primary" id="comms-send-btn" onclick="sendCommsEmail()"><i class="ti ti-send"></i> Send now</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;margin-bottom:14px">
+            <div><span style="color:var(--muted)">To: </span><span style="color:var(--blue-mid)">finance@mataharitrading.com.my</span></div>
+            <div><span style="color:var(--muted)">CC: </span>procurement@chinhingroup.com</div>
+            <div><span style="color:var(--muted)">Subject: </span>Invoice MT-2026-0891 — LHDN Compliance Discrepancy Notice</div>
+          </div>
+          <div id="comms-email-body" style="font-size:13px;color:var(--muted);padding:20px;text-align:center">
+            <span class="spin"><i class="ti ti-loader-2"></i></span> Loading AI-drafted email…
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Communication history</span><button class="btn"><i class="ti ti-download"></i> Export</button></div>
+          <table>
+            <thead><tr><th>Date</th><th>Invoice</th><th>Vendor</th><th>Type</th><th>Status</th><th>Response</th></tr></thead>
+            <tbody id="comms-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════ ANALYTICS -->
+      <div class="page" id="page-analytics">
+        <div class="page-title">Analytics</div>
+        <div class="page-sub">Compliance trends, discrepancy distribution, and capital impact analysis</div>
+        <div class="metric-row">
+          <div class="metric-card"><div class="metric-label">Compliance rate (MTD)</div><div class="metric-val success" id="a-rate">—</div></div>
+          <div class="metric-card"><div class="metric-label">Avg. resolution time</div><div class="metric-val" id="a-days">—</div></div>
+          <div class="metric-card"><div class="metric-label">SST recovered</div><div class="metric-val success" id="a-sst">—</div></div>
+          <div class="metric-card"><div class="metric-label">LHDN rejections avoided</div><div class="metric-val success" id="a-rej">—</div></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Weekly compliance trend</span></div>
+            <div class="legend-row">
+              <span><span class="legend-dot" style="background:#378ADD"></span>Clean</span>
+              <span><span class="legend-dot" style="background:#EF9F27"></span>Minor flag</span>
+              <span><span class="legend-dot" style="background:#E24B4A"></span>High-risk</span>
+            </div>
+            <div class="chart-wrap" style="height:220px"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">6-month compliance rate</span></div>
+            <div class="chart-wrap" style="height:220px;margin-top:28px"><canvas id="monthChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Discrepancy type breakdown</span></div>
+            <div class="legend-row">
+              <span><span class="legend-dot" style="background:#378ADD"></span>SST rate</span>
+              <span><span class="legend-dot" style="background:#E24B4A"></span>Entity name</span>
+              <span><span class="legend-dot" style="background:#EF9F27"></span>Tax code</span>
+              <span><span class="legend-dot" style="background:#639922"></span>Rounding</span>
+            </div>
+            <div class="chart-wrap" style="height:200px"><canvas id="typeChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Capital at risk by vendor</span></div>
+            <div class="legend-row">
+              <span><span class="legend-dot" style="background:#E24B4A"></span>High-risk</span>
+              <span><span class="legend-dot" style="background:#EF9F27"></span>Minor</span>
+            </div>
+            <div class="chart-wrap" style="height:280px"><canvas id="vendorChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════ AUDIT LOG -->
+      <div class="page" id="page-auditlog">
+        <div class="page-title">Audit log</div>
+        <div class="page-sub">Immutable record of every agent action — exportable for LHDN submission</div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">All agent actions</span>
+            <div style="display:flex;gap:8px">
+              <span class="badge badge-gray" id="audit-count"></span>
+              <button class="btn" onclick="exportAuditCSV()"><i class="ti ti-download"></i> Export CSV</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Timestamp</th><th>Agent</th><th>Invoice</th><th>Action</th><th>Result</th></tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="frontend/js/main.js"></script>
+</body>
+</html>
