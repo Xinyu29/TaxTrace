@@ -1,4 +1,8 @@
-const API = 'http://localhost:3000'
+const API = ''
+var monthlyChartInstance = null
+var vendorChartInstance = null
+var trendChartInstance = null
+var typeChartInstance = null
 const gc = '#e5e9f0', tc = '#8a96a8'
 
 // ── Mock Data (Fallback when backend is not available) ────────────────────
@@ -260,7 +264,7 @@ async function showDiscDetail(id) {
 
   var d = null
   try {
-    var response = await fetch(API + '/api/discrepancies/' + id)
+    var response = await fetch('/api/discrepancies/' + id)
     if (response.ok) {
       d = await response.json()
     }
@@ -284,6 +288,14 @@ async function showDiscDetail(id) {
       if (mockInv.flag_type) {
         reasoning.push({ title: 'Flag Detected', detail: mockInv.flag_type + ' - Manual review required.', status: 'error' })
       }
+      
+      // Mock email for demonstration
+      var mockEmail = {
+        to: 'finance@' + mockInv.vendor.toLowerCase().replace(/\s/g, '') + '.com.my',
+        subject: 'Invoice ' + mockInv.invoice_no + ' — LHDN Compliance Discrepancy Notice',
+        body: 'Dear Finance Team,\n\nRE: Invoice ' + mockInv.invoice_no + ' - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from ' + mockInv.vendor + ' (RM ' + fmt(mockInv.amount) + ').\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
+      }
+      
       d = {
         id: mockInv.id,
         vendor: mockInv.vendor,
@@ -294,7 +306,8 @@ async function showDiscDetail(id) {
         capital_at_risk: mockInv.agent_status === 'high_risk' ? mockInv.amount : mockInv.amount * 0.3,
         agent_status: mockInv.agent_status,
         comparison: comparison,
-        reasoning_steps: reasoning
+        reasoning_steps: reasoning,
+        email: mockEmail  // Add email
       }
     }
   }
@@ -337,6 +350,19 @@ async function showDiscDetail(id) {
     '</div>'
   }
 
+  // Add email section if available
+  var emailHtml = ''
+  if (d.email) {
+    emailHtml = '<div class="card">' +
+      '<div class="card-header"><span class="card-title">📧 Resolution Email</span></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">' +
+        '<div><span style="color:var(--muted)">To: </span><span style="color:var(--blue-mid)">' + d.email.to + '</span></div>' +
+        '<div style="grid-column:1/-1"><span style="color:var(--muted)">Subject: </span><strong>' + d.email.subject + '</strong></div>' +
+      '</div>' +
+      '<div class="email-preview">' + d.email.body + '</div>' +
+    '</div>'
+  }
+
   document.getElementById('disc-detail').innerHTML = 
     '<div class="metric-row" style="grid-template-columns:repeat(3,1fr)">' +
       '<div class="metric-card"><div class="metric-label">Risk category</div><div class="metric-val danger" style="font-size:16px">' + (d.risk_category || '—') + '</div></div>' +
@@ -352,7 +378,8 @@ async function showDiscDetail(id) {
         '<button class="btn success" onclick="doAction(\'' + id + '\',\'approve\')"><i class="ti ti-check"></i> Override & approve</button>' +
       '</div>' +
     '</div>' +
-    comparisonHtml
+    comparisonHtml +
+    emailHtml
 }
 
 async function doAction(id, action) {
@@ -398,7 +425,7 @@ async function loadComms() {
 
   var email = null
   try {
-    var resp = await fetch(API + '/api/draft-email', {
+    var resp = await fetch(API + '/api/comms/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -441,121 +468,343 @@ function sendCommsEmail() {
 var analyticsCharts = []
 
 async function loadAnalytics() {
-  analyticsCharts.forEach(function(c) { c.destroy() })
-  analyticsCharts = []
+  console.log('=== LOADING ANALYTICS ===')
   
+  // Fetch data
   var fallback = MOCK_DATA.analytics
-  var anal = await fetchWithFallback(API + '/api/analytics', fallback)
+  var anal = await fetchWithFallback('/api/analytics', fallback)
+  console.log('Analytics data:', anal)
   
+  // Update metric cards
   document.getElementById('a-rate').textContent = (anal.compliance_rate_mtd || 0) + '%'
   document.getElementById('a-days').textContent = (anal.avg_resolution_days || 0) + ' days'
   document.getElementById('a-sst').textContent = 'RM ' + fmt(anal.sst_recovered || 0)
   document.getElementById('a-rej').textContent = anal.lhdn_rejections_avoided || 0
 
+  var dashFallback = MOCK_DATA.dashboard
+  var dash = await fetchWithFallback('/api/dashboard', dashFallback)
+  console.log('Dashboard data:', dash)
+
+  // Common chart options
   var opts = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { 
+      legend: { display: false }
+    },
     scales: {
-      x: { grid: { color: gc }, ticks: { color: tc, font: { size: 11 } } },
-      y: { grid: { color: gc }, ticks: { color: tc, font: { size: 11 } } }
+      x: { 
+        grid: { color: '#e5e9f0', drawBorder: false }, 
+        ticks: { color: '#8a96a8', font: { size: 11 } } 
+      },
+      y: { 
+        grid: { color: '#e5e9f0', drawBorder: false }, 
+        ticks: { color: '#8a96a8', font: { size: 11 } } 
+      }
     }
   }
 
-  var dashFallback = MOCK_DATA.dashboard
-  var dash = await fetchWithFallback(API + '/api/dashboard', dashFallback)
+    // --- 1. Monthly Trend Chart (6-month compliance) ---
+    var monthlyData = anal && anal.monthly_trend ? anal.monthly_trend : []
+    console.log('Monthly data:', monthlyData)
 
-  if (dash && dash.weekly_trend) {
-    analyticsCharts.push(new Chart(document.getElementById('trendChart'), {
-      type: 'bar',
-      data: {
-        labels: dash.weekly_trend.map(function(w) { return w.week }),
-        datasets: [
-          { label: 'Clean', data: dash.weekly_trend.map(function(w) { return w.clean }), backgroundColor: '#378ADD', stack: 's' },
-          { label: 'Minor', data: dash.weekly_trend.map(function(w) { return w.minor }), backgroundColor: '#EF9F27', stack: 's' },
-          { label: 'High-risk', data: dash.weekly_trend.map(function(w) { return w.high_risk }), backgroundColor: '#E24B4A', stack: 's' },
-        ]
-      },
-      options: {
-        ...opts,
-        scales: {
-          x: { stacked: true, ...opts.scales.x },
-          y: { stacked: true, ...opts.scales.y }
-        }
-      }
-    }))
-
-    if (dash.discrepancy_types) {
-      analyticsCharts.push(new Chart(document.getElementById('typeChart'), {
-        type: 'bar',
-        data: {
-          labels: dash.discrepancy_types.map(function(d) { return d.type }),
-          datasets: [{
-            data: dash.discrepancy_types.map(function(d) { return d.count }),
-            backgroundColor: ['#378ADD', '#E24B4A', '#EF9F27', '#639922', '#888'],
-            borderWidth: 0
-          }]
-        },
-        options: opts
-      }))
+    if (!monthlyData || monthlyData.length === 0) {
+      monthlyData = [
+        { month: 'Jan', rate: 100 },
+        { month: 'Feb', rate: 100 },
+        { month: 'Mar', rate: 100 },
+        { month: 'Apr', rate: 100 },
+        { month: 'May', rate: 100 },
+        { month: 'Jun', rate: 100 }
+      ]
     }
 
-    if (dash.top_vendors_at_risk) {
-      analyticsCharts.push(new Chart(document.getElementById('vendorChart'), {
+    var monthlyCanvas = document.getElementById('monthChart')
+    if (monthlyCanvas) {
+      // MAKE CANVAS VISIBLE
+      monthlyCanvas.style.background = '#f8faff'
+      monthlyCanvas.style.border = '3px solid #185FA5'
+      monthlyCanvas.style.borderRadius = '8px'
+      monthlyCanvas.style.minHeight = '400px'
+      
+      if (monthlyChartInstance) {
+        console.log('Updating existing monthly chart')
+        monthlyChartInstance.data.labels = monthlyData.map(function(m) { return m.month || 'Unknown' })
+        monthlyChartInstance.data.datasets[0].data = monthlyData.map(function(m) { return m.rate || 0 })
+        monthlyChartInstance.options.scales.y.min = 0
+        monthlyChartInstance.options.scales.y.max = 100
+        monthlyChartInstance.options.scales.y.ticks.stepSize = 10
+        monthlyChartInstance.update()
+        monthlyChartInstance.resize()
+      } else {
+        console.log('Creating new monthly chart')
+        var ctx = monthlyCanvas.getContext('2d')
+        monthlyChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: monthlyData.map(function(m) { return m.month || 'Unknown' }),
+            datasets: [{
+              label: 'Compliance Rate',
+              data: monthlyData.map(function(m) { return m.rate || 0 }),
+              borderColor: '#185FA5',
+              backgroundColor: 'rgba(24,95,165,0.15)',
+              fill: true,
+              tension: 0.3,
+              pointBackgroundColor: '#185FA5',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 3,
+              pointRadius: 10,
+              pointHoverRadius: 14,
+              borderWidth: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  font: { size: 14, weight: 'bold' },
+                  color: '#4e5f74',
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  padding: 20
+                }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(0,0,0,0.9)',
+                titleFont: { size: 14, weight: 'bold' },
+                bodyFont: { size: 13 },
+                padding: 12,
+                callbacks: {
+                  label: function(context) {
+                    return 'Compliance: ' + context.parsed.y + '%'
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: '#e5e9f0', drawBorder: false },
+                ticks: { 
+                  color: '#4e5f74', 
+                  font: { size: 14, weight: 'bold' },
+                  padding: 10
+                }
+              },
+              y: {
+                min: 0,
+                max: 100,
+                grid: { color: '#e5e9f0', drawBorder: false },
+                ticks: { 
+                  color: '#4e5f74', 
+                  font: { size: 13, weight: 'bold' },
+                  callback: function(value) { return value + '%' },
+                  stepSize: 10,
+                  padding: 10
+                }
+              }
+            },
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            }
+          }
+        })
+        console.log('Monthly chart created with Y-axis 0-100%')
+      }
+    }
+
+  // --- 2. Vendor Risk Chart ---
+  var vendorData = dash && dash.top_vendors_at_risk ? dash.top_vendors_at_risk : []
+  console.log('Vendor data:', vendorData)
+  
+  var vendorCanvas = document.getElementById('vendorChart')
+  if (vendorCanvas && vendorData.length > 0) {
+    if (vendorChartInstance) {
+      console.log('Updating existing vendor chart')
+      vendorChartInstance.data.labels = vendorData.map(function(v) { return v.vendor || 'Unknown' })
+      vendorChartInstance.data.datasets[0].data = vendorData.map(function(v) { return v.amount || 0 })
+      vendorChartInstance.data.datasets[0].backgroundColor = vendorData.map(function(v) { 
+        return v.level === 'high' ? '#E24B4A' : '#EF9F27' 
+      })
+      vendorChartInstance.update()
+    } else {
+      console.log('Creating new vendor chart')
+      var ctx = vendorCanvas.getContext('2d')
+      vendorChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: dash.top_vendors_at_risk.map(function(v) { return v.vendor }),
+          labels: vendorData.map(function(v) { return v.vendor || 'Unknown' }),
           datasets: [{
-            data: dash.top_vendors_at_risk.map(function(v) { return v.amount }),
-            backgroundColor: dash.top_vendors_at_risk.map(function(v) { return v.level === 'high' ? '#E24B4A' : '#EF9F27' }),
+            data: vendorData.map(function(v) { return v.amount || 0 }),
+            backgroundColor: vendorData.map(function(v) { 
+              return v.level === 'high' ? '#E24B4A' : '#EF9F27' 
+            }),
             borderWidth: 0,
-            borderRadius: 3
+            borderRadius: 4
           }]
         },
         options: {
           ...opts,
           indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return 'RM ' + context.parsed.x.toLocaleString()
+                }
+              }
+            }
+          },
           scales: {
-            ...opts.scales,
             x: {
               ...opts.scales.x,
-              ticks: { ...opts.scales.x.ticks, callback: function(v) { return 'RM ' + Math.round(v / 1000) + 'k' } }
+              ticks: { 
+                ...opts.scales.x.ticks, 
+                callback: function(v) { 
+                  if (v >= 1000) {
+                    return 'RM ' + (v / 1000).toFixed(0) + 'k' 
+                  }
+                  return 'RM ' + v
+                } 
+              }
+            },
+            y: {
+              ...opts.scales.y,
+              ticks: { 
+                ...opts.scales.y.ticks,
+                font: { size: 10 }
+              }
             }
           }
         }
-      }))
+      })
+      console.log('Vendor risk chart created')
     }
   }
 
-  if (anal && anal.monthly_trend) {
-    analyticsCharts.push(new Chart(document.getElementById('monthChart'), {
-      type: 'line',
-      data: {
-        labels: anal.monthly_trend.map(function(m) { return m.month }),
-        datasets: [{
-          data: anal.monthly_trend.map(function(m) { return m.rate }),
-          borderColor: '#185FA5',
-          backgroundColor: 'rgba(24,95,165,.08)',
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: '#185FA5',
-          pointRadius: 4
-        }]
-      },
-      options: {
-        ...opts,
-        scales: {
-          x: { ...opts.scales.x },
-          y: {
-            ...opts.scales.y,
-            min: 72,
-            max: 88,
-            ticks: { ...opts.scales.y.ticks, callback: function(v) { return v + '%' } }
+  // --- 3. Weekly Trend Chart ---
+  var weeklyData = dash && dash.weekly_trend ? dash.weekly_trend : []
+  console.log('Weekly data:', weeklyData)
+  
+  var trendCanvas = document.getElementById('trendChart')
+  if (trendCanvas && weeklyData.length > 0) {
+    if (trendChartInstance) {
+      console.log('Updating existing weekly trend chart')
+      trendChartInstance.data.labels = weeklyData.map(function(w) { return w.week || 'Week' })
+      trendChartInstance.data.datasets[0].data = weeklyData.map(function(w) { return w.clean || 0 })
+      trendChartInstance.data.datasets[1].data = weeklyData.map(function(w) { return w.minor || 0 })
+      trendChartInstance.data.datasets[2].data = weeklyData.map(function(w) { return w.high_risk || 0 })
+      trendChartInstance.update()
+    } else {
+      console.log('Creating new weekly trend chart')
+      var ctx = trendCanvas.getContext('2d')
+      trendChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: weeklyData.map(function(w) { return w.week || 'Week' }),
+          datasets: [
+            { 
+              label: 'Clean', 
+              data: weeklyData.map(function(w) { return w.clean || 0 }), 
+              backgroundColor: '#378ADD', 
+              stack: 's' 
+            },
+            { 
+              label: 'Minor', 
+              data: weeklyData.map(function(w) { return w.minor || 0 }), 
+              backgroundColor: '#EF9F27', 
+              stack: 's' 
+            },
+            { 
+              label: 'High-risk', 
+              data: weeklyData.map(function(w) { return w.high_risk || 0 }), 
+              backgroundColor: '#E24B4A', 
+              stack: 's' 
+            },
+          ]
+        },
+        options: {
+          ...opts,
+          scales: {
+            x: { stacked: true, ...opts.scales.x },
+            y: { stacked: true, ...opts.scales.y }
+          },
+          plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y + ' invoices'
+                }
+              }
+            }
           }
         }
-      }
-    }))
+      })
+      console.log('Weekly trend chart created')
+    }
   }
+
+  // --- 4. Discrepancy Type Chart ---
+  var discData = dash && dash.discrepancy_types ? dash.discrepancy_types : []
+  console.log('Discrepancy data:', discData)
+  
+  var typeCanvas = document.getElementById('typeChart')
+  if (typeCanvas && discData.length > 0) {
+    if (typeChartInstance) {
+      console.log('Updating existing discrepancy type chart')
+      typeChartInstance.data.labels = discData.map(function(d) { return d.type || 'Unknown' })
+      typeChartInstance.data.datasets[0].data = discData.map(function(d) { return d.count || 0 })
+      typeChartInstance.update()
+    } else {
+      console.log('Creating new discrepancy type chart')
+      var ctx = typeCanvas.getContext('2d')
+      typeChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: discData.map(function(d) { return d.type || 'Unknown' }),
+          datasets: [{
+            data: discData.map(function(d) { return d.count || 0 }),
+            backgroundColor: ['#378ADD', '#E24B4A', '#EF9F27', '#639922', '#888', '#9B59B6'],
+            borderWidth: 0,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          ...opts,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.y + ' invoices'
+                }
+              }
+            }
+          }
+        }
+      })
+      console.log('Discrepancy type chart created')
+    }
+  }
+
+  // Force resize after all charts are updated
+  setTimeout(function() {
+    var allCharts = [monthlyChartInstance, vendorChartInstance, trendChartInstance, typeChartInstance]
+    allCharts.forEach(function(chart) {
+      if (chart && chart.resize) {
+        chart.resize()
+      }
+    })
+    console.log('All charts resized')
+  }, 300)
+  
+  console.log('Analytics loaded')
 }
 
 // ── AUDIT LOG ─────────────────────────────────────────────────────────────────
@@ -564,7 +813,7 @@ var auditData = []
 
 async function loadAuditLog() {
   var fallback = MOCK_DATA.audit
-  var d = await fetchWithFallback(API + '/api/audit-log', fallback)
+  var d = await fetchWithFallback(API + '/api/audit', fallback)
   
   auditData = d.logs || []
   document.getElementById('audit-count').textContent = (d.total || 0) + ' entries'
@@ -911,3 +1160,64 @@ fetch(API + '/api/health').then(function(r) { return r.json() }).then(function(d
 }).catch(function() {
   console.log('Backend not available - using fallback data')
 })
+
+// ── Fix chart resizing ─────────────────────────────────────────────────────────
+
+// Force charts to resize when tab becomes visible
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    analyticsCharts.forEach(function(chart) {
+      if (chart && chart.resize) {
+        setTimeout(function() {
+          chart.resize()
+        }, 300)
+      }
+    })
+  }
+})
+
+// Also resize on window resize
+var resizeTimer
+window.addEventListener('resize', function() {
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(function() {
+    analyticsCharts.forEach(function(chart) {
+      if (chart && chart.resize) {
+        chart.resize()
+      }
+    })
+  }, 250)
+})
+
+// ── Force load analytics when page loads ─────────────────────────────────────
+
+// Override the nav function to ensure analytics loads
+var originalNav = nav;
+nav = function(id, el) {
+  originalNav(id, el);
+  
+  // If navigating to analytics, force a reload after a short delay
+  if (id === 'analytics') {
+    setTimeout(function() {
+      console.log('Forcing analytics reload...');
+      loadAnalytics();
+    }, 300);
+  }
+};
+
+// Also load analytics when page first loads
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, preloading analytics...');
+  setTimeout(function() {
+    loadAnalytics();
+  }, 500);
+});
+
+// ── Also expose loadAnalytics to window for manual testing ──────────────────
+
+window.loadAnalytics = loadAnalytics;
+window.loadDashboard = loadDashboard;
+window.loadQueue = loadQueue;
+window.loadDiscrepancies = loadDiscrepancies;
+window.loadComms = loadComms;
+window.loadAuditLog = loadAuditLog;

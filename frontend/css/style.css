@@ -92,13 +92,20 @@ tr:hover td{background:#f8fafe;cursor:default}
 .reason-text{font-size:13px;color:#1f2a3b;line-height:1.6;padding-top:2px}
 /* EMAIL */
 .email-preview{background:#f8fafe;border-radius:10px;padding:16px 18px;font-size:13px;line-height:1.85;color:#1f2a3b;border-left:4px solid var(--blue-mid);white-space:pre-wrap;word-wrap:break-word}
-/* CHARTS */
-.chart-wrap{position:relative;width:100%}
+/* CHARTS - UPDATED WITH BIGGER SIZES */
+.chart-wrap{position:relative;width:100%;min-height:300px}
+.chart-wrap canvas{width:100% !important;height:100% !important}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .legend-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:#3b4a5e}
 .legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:middle}
 .tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:30px;background:#edf1f7;color:#3b4a5e;font-weight:460}
-/* ── WOW FEATURE: Upload Panel ─────────────────────────────────── */
+/* ANALYTICS PAGE - BIGGER CHARTS */
+#page-analytics .chart-wrap{min-height:320px}
+#page-analytics #monthChart{min-height:350px}
+#page-analytics #vendorChart{min-height:350px}
+#page-analytics #trendChart{min-height:300px}
+#page-analytics #typeChart{min-height:280px}
+/* UPLOAD PANEL */
 .upload-zone{border:2px dashed #b8c8dc;border-radius:16px;padding:36px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#f8fbff}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--blue-mid);background:#eaf1fb}
 .upload-zone.drag{transform:scale(1.01)}
@@ -129,3 +136,29 @@ input[type=file]{display:none}
 .filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .filter-btn{padding:5px 13px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
 .filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* Make 6-month compliance rate chart BIG and VISIBLE */
+#monthChart {
+  min-height: 400px !important;
+  max-height: 450px !important;
+  width: 100% !important;
+}
+
+#page-analytics .chart-wrap {
+  min-height: 400px !important;
+}
+
+/* Make chart labels and text bigger */
+#monthChart + .chartjs-tooltip {
+  font-size: 14px !important;
+}
+
+/* Ensure the chart container is large */
+#page-analytics .card:has(#monthChart) {
+  padding: 20px 22px;
+}
+
+/* Make the chart responsive but with minimum height */
+.chart-wrap#monthChart-wrap {
+  height: 400px !important;
+  min-height: 400px !important;
+}

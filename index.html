@@ -6,7 +6,31 @@
   <title>TaxTrace AI · e-Invoicing Compliance</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/1.68.0/tabler-icons.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-  <link rel="stylesheet" href="frontend/css/style.css">
+  <link rel="stylesheet" href="/frontend/css/style.css">
+  <style>
+    /* Additional fix for 6-month chart */
+    #monthChart-wrap {
+      height: 400px !important;
+      min-height: 400px !important;
+      width: 100% !important;
+    }
+    #monthChart {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 380px !important;
+      display: block !important;
+    }
+    /* Make the 6-month chart card full width */
+    .two-col .card:has(#monthChart) {
+      grid-column: 1 / -1 !important;
+      width: 100% !important;
+    }
+    /* Ensure chart container is big */
+    .two-col .card:has(#monthChart) .chart-wrap {
+      height: 400px !important;
+      min-height: 400px !important;
+    }
+  </style>
 </head>
 <body>
 
@@ -264,12 +288,24 @@
       <div class="page" id="page-analytics">
         <div class="page-title">Analytics</div>
         <div class="page-sub">Compliance trends, discrepancy distribution, and capital impact analysis</div>
+        
         <div class="metric-row">
           <div class="metric-card"><div class="metric-label">Compliance rate (MTD)</div><div class="metric-val success" id="a-rate">—</div></div>
           <div class="metric-card"><div class="metric-label">Avg. resolution time</div><div class="metric-val" id="a-days">—</div></div>
           <div class="metric-card"><div class="metric-label">SST recovered</div><div class="metric-val success" id="a-sst">—</div></div>
           <div class="metric-card"><div class="metric-label">LHDN rejections avoided</div><div class="metric-val success" id="a-rej">—</div></div>
         </div>
+
+        <!-- 6-MONTH COMPLIANCE - BIG AND VISIBLE -->
+        <div style="background:#fff;border-radius:14px;border:1px solid #e5e9f0;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,20,40,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <span style="font-size:18px;font-weight:600;color:#0e1f33;">📈 6-month compliance rate</span>
+          </div>
+          <div style="height:380px;width:100%;position:relative;background:#fafcff;border-radius:8px;padding:10px;">
+            <canvas id="monthChart" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
+        </div>
+
         <div class="two-col">
           <div class="card">
             <div class="card-header"><span class="card-title">Weekly compliance trend</span></div>
@@ -278,12 +314,9 @@
               <span><span class="legend-dot" style="background:#EF9F27"></span>Minor flag</span>
               <span><span class="legend-dot" style="background:#E24B4A"></span>High-risk</span>
             </div>
-            <div class="chart-wrap" style="height:220px"><canvas id="trendChart"></canvas></div>
+            <div style="height:280px;"><canvas id="trendChart" style="width:100%;height:100%;"></canvas></div>
           </div>
-          <div class="card">
-            <div class="card-header"><span class="card-title">6-month compliance rate</span></div>
-            <div class="chart-wrap" style="height:220px;margin-top:28px"><canvas id="monthChart"></canvas></div>
-          </div>
+          
           <div class="card">
             <div class="card-header"><span class="card-title">Discrepancy type breakdown</span></div>
             <div class="legend-row">
@@ -292,15 +325,16 @@
               <span><span class="legend-dot" style="background:#EF9F27"></span>Tax code</span>
               <span><span class="legend-dot" style="background:#639922"></span>Rounding</span>
             </div>
-            <div class="chart-wrap" style="height:200px"><canvas id="typeChart"></canvas></div>
+            <div style="height:280px;"><canvas id="typeChart" style="width:100%;height:100%;"></canvas></div>
           </div>
-          <div class="card">
+          
+          <div class="card" style="grid-column: 1 / -1;">
             <div class="card-header"><span class="card-title">Capital at risk by vendor</span></div>
             <div class="legend-row">
               <span><span class="legend-dot" style="background:#E24B4A"></span>High-risk</span>
               <span><span class="legend-dot" style="background:#EF9F27"></span>Minor</span>
             </div>
-            <div class="chart-wrap" style="height:280px"><canvas id="vendorChart"></canvas></div>
+            <div style="height:320px;"><canvas id="vendorChart" style="width:100%;height:100%;"></canvas></div>
           </div>
         </div>
       </div>
@@ -328,6 +362,6 @@
   </div>
 </div>
 
-<script src="frontend/js/main.js"></script>
+<script src="/frontend/js/main.js"></script>
 </body>
 </html>
