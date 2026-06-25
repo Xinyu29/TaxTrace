@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from models import db, Invoice
+from models import db, Invoice, Communication
 
 discrepancies_bp = Blueprint('discrepancies', __name__, url_prefix='/api/discrepancies')
 
@@ -23,12 +23,34 @@ def get_discrepancy(invoice_id):
     reasoning = invoice.get_reasoning() or []
     
     # Determine risk category
-    if invoice.risk_score >= 7:
+    if invoice.risk_score >= 6.0:
         risk_category = 'High-risk'
-    elif invoice.risk_score >= 4:
+    elif invoice.risk_score >= 3.0:
         risk_category = 'Moderate risk'
     else:
         risk_category = 'Low risk'
+    
+    # Get the email from communications
+    comm = Communication.query.filter_by(invoice_id=invoice_id).first()
+    email = None
+    if comm:
+        email = {
+            'to': comm.to_email,
+            'subject': comm.subject,
+            'body': comm.body
+        }
+    else:
+        # Generate a default email if none exists
+        from services.ai_engine import AIEngine
+        ai_engine = AIEngine()
+        extracted = invoice.get_extracted() or {}
+        issues = [c.get('field') for c in comparison if not c.get('match', True)]
+        email_data = ai_engine.draft_email(extracted, issues)
+        email = {
+            'to': email_data.get('to', f'finance@{invoice.vendor.lower().replace(" ", "")}.com.my'),
+            'subject': email_data.get('subject', f'Invoice {invoice.invoice_no} — LHDN Compliance Discrepancy Notice'),
+            'body': email_data.get('body', '')
+        }
     
     return jsonify({
         'id': invoice.id,
@@ -40,5 +62,6 @@ def get_discrepancy(invoice_id):
         'capital_at_risk': invoice.capital_at_risk,
         'agent_status': invoice.agent_status,
         'comparison': comparison,
-        'reasoning_steps': reasoning
+        'reasoning_steps': reasoning,
+        'email': email  # Always include email
     })

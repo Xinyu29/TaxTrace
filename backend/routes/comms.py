@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from models import db, Communication, Invoice
 from datetime import datetime
+from services.ai_engine import AIEngine
 
 comms_bp = Blueprint('comms', __name__, url_prefix='/api/comms')
 
@@ -19,33 +20,33 @@ def draft_email():
     amount = data.get('amount', 0)
     issues = data.get('issues', [])
     
-    # Generate a draft email
-    issues_text = '\n'.join([f'• {issue}' for issue in issues])
+    # Use AI engine to draft email
+    ai_engine = AIEngine()
+    extracted = {
+        'vendor_name': vendor,
+        'invoice_no': invoice_no,
+        'amount': amount
+    }
+    email = ai_engine.draft_email(extracted, issues)
     
-    body = f"""Dear Finance Team,
-
-RE: Invoice {invoice_no} - Compliance Discrepancy Notice
-
-We have identified the following discrepancies in the invoice from {vendor} (RM {amount:,.2f}):
-
-{issues_text}
-
-Action Required:
-1. Please review the discrepancies and verify with the vendor
-2. Request corrected invoice if necessary
-3. Update records before payment processing
-
-This is an automated notification from TaxTrace AI. Please respond within 48 hours.
-
-Best regards,
-TaxTrace AI Audit System
-"""
+    # Save to database if invoice_id is provided
+    invoice_id = data.get('invoice_id')
+    if invoice_id:
+        comm = Communication(
+            invoice_id=invoice_id,
+            vendor=vendor,
+            invoice_no=invoice_no,
+            type='resolution',
+            sent=False,
+            response='pending',
+            subject=email.get('subject', ''),
+            body=email.get('body', ''),
+            to_email=email.get('to', '')
+        )
+        db.session.add(comm)
+        db.session.commit()
     
-    return jsonify({
-        'to': f'finance@{vendor.lower().replace(" ", "")}.com.my',
-        'subject': f'Invoice {invoice_no} — LHDN Compliance Discrepancy Notice',
-        'body': body
-    })
+    return jsonify(email)
 
 @comms_bp.route('/send', methods=['POST'])
 def send_comms():

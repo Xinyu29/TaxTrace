@@ -61,6 +61,16 @@ def get_dashboard():
             'count': v.count
         })
     
+    # If no top vendors, add mock data for demo
+    if not top_vendors_data:
+        top_vendors_data = [
+            {'vendor': 'Matahari Trading Sdn Bhd', 'amount': 128000, 'level': 'high'},
+            {'vendor': 'Kencana Engineering (M) Sdn Bhd', 'amount': 95000, 'level': 'high'},
+            {'vendor': 'Sentosa Supplies Sdn Bhd', 'amount': 72000, 'level': 'minor'},
+            {'vendor': 'Bina Jaya Construction Sdn Bhd', 'amount': 55000, 'level': 'minor'},
+            {'vendor': 'Tropical Food Industries Sdn Bhd', 'amount': 48000, 'level': 'high'}
+        ]
+    
     # Weekly trend (last 6 weeks)
     weekly_trend = []
     for i in range(5, -1, -1):
@@ -105,6 +115,15 @@ def get_dashboard():
         {'type': d.flag_type or 'Unknown', 'count': d.count}
         for d in discrepancy_types
     ]
+    
+    # If no discrepancy types, add mock data
+    if not discrepancy_types_data:
+        discrepancy_types_data = [
+            {'type': 'SST rate mismatch', 'count': 15},
+            {'type': 'Entity name mismatch', 'count': 10},
+            {'type': 'Tax code error', 'count': 8},
+            {'type': 'Rounding discrepancy', 'count': 5}
+        ]
     
     # Compliance rate
     total_invoices = Invoice.query.count()
