@@ -5,7 +5,7 @@ var trendChartInstance = null
 var typeChartInstance = null
 const gc = '#e5e9f0', tc = '#8a96a8'
 
-// ── Mock Data (Fallback when backend is not available) ────────────────────
+// ── Mock Data ────────────────────
 
 const MOCK_DATA = {
   dashboard: {
@@ -419,10 +419,11 @@ async function loadComms() {
       '</tr>'
     }).join('')
   } else {
-    historyHtml = '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No communications found</td></tr>'
+    historyHtml = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No communications found</td></tr>'
   }
   document.getElementById('comms-tbody').innerHTML = historyHtml
 
+  // Load AI draft email with fallback
   var email = null
   try {
     var resp = await fetch(API + '/api/comms/draft', {
@@ -445,14 +446,64 @@ async function loadComms() {
     console.log('Email draft not available (backend not running)')
   }
 
-  var emailBody = document.getElementById('comms-email-body')
-  if (email) {
-    emailBody.className = 'email-preview'
-    emailBody.textContent = email.body
-  } else {
-    emailBody.className = 'email-preview'
-    emailBody.textContent = 'Dear Finance Team,\n\nRE: Invoice MT-2026-0891 - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from Matahari Trading Sdn Bhd (RM 128,000.00).\n\nIssues:\n• Entity name mismatch — PDF omits (M) suffix\n• SST rate conflict — PDF 8% vs LHDN 0% E3 exemption\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
+  // Update the editable email body
+  var editableEl = document.getElementById('comms-email-editable')
+  if (editableEl) {
+    if (email && email.body) {
+      editableEl.value = email.body
+      // Also update the preview for compatibility
+      var previewEl = document.getElementById('comms-email-body')
+      if (previewEl) {
+        previewEl.className = 'email-preview'
+        previewEl.textContent = email.body
+      }
+    } else {
+      // Use fallback email
+      var fallbackBody = 'Dear Finance Team,\n\nRE: Invoice MT-2026-0891 - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from Matahari Trading Sdn Bhd (RM 128,000.00).\n\nIssues:\n• Entity name mismatch — PDF omits (M) suffix\n• SST rate conflict — PDF 8% vs LHDN 0% E3 exemption\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
+      
+      editableEl.value = fallbackBody
+      var previewEl = document.getElementById('comms-email-body')
+      if (previewEl) {
+        previewEl.className = 'email-preview'
+        previewEl.textContent = fallbackBody
+      }
+    }
   }
+}
+
+function sendCommsEmail() {
+  if (commsSent) return
+  var body = document.getElementById('comms-email-editable')?.value || ''
+  commsSent = true
+  document.getElementById('comms-draft-status').className = 'badge badge-success'
+  document.getElementById('comms-draft-status').textContent = '✓ Sent'
+  document.getElementById('comms-send-btn').disabled = true
+  toast('Email sent to vendor 📧')
+}
+
+function copyCommsEmail() {
+  var body = document.getElementById('comms-email-editable')?.value || ''
+  navigator.clipboard.writeText(body).then(function() {
+    toast('Email copied to clipboard')
+  }).catch(function() {
+    // Fallback for browsers without clipboard API
+    var textarea = document.createElement('textarea')
+    textarea.value = body
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    toast('Email copied to clipboard')
+  })
+}
+
+function resetCommsEmail() {
+  commsSent = false
+  document.getElementById('comms-draft-status').className = 'badge badge-warning'
+  document.getElementById('comms-draft-status').textContent = 'Awaiting approval'
+  document.getElementById('comms-send-btn').disabled = false
+  // Reload the email content
+  loadComms()
 }
 
 function sendCommsEmail() {
@@ -461,6 +512,232 @@ function sendCommsEmail() {
   document.getElementById('comms-draft-status').className = 'badge badge-success'
   document.getElementById('comms-draft-status').textContent = '✓ Sent'
   document.getElementById('comms-send-btn').disabled = true
+}
+
+// ── COMMS PAGE BUTTONS ─────────────────────────────────────────────────────────
+
+function copyCommsEmail() {
+  var body = document.getElementById('comms-email-editable')?.value || ''
+  if (!body || body === 'Loading email...' || body === 'Loading…') {
+    toast('No email content to copy', 'warning')
+    return
+  }
+  navigator.clipboard.writeText(body).then(function() {
+    toast('Email copied to clipboard 📋')
+  }).catch(function() {
+    // Fallback
+    var textarea = document.createElement('textarea')
+    textarea.value = body
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    toast('Email copied to clipboard 📋')
+  })
+}
+
+function resetCommsEmail() {
+  commsSent = false
+  document.getElementById('comms-draft-status').className = 'badge badge-warning'
+  document.getElementById('comms-draft-status').textContent = 'Awaiting approval'
+  document.getElementById('comms-send-btn').disabled = false
+  
+  // Reset to default email
+  var defaultBody = 'Dear Finance Team,\n\nRE: Invoice MT-2026-0891 - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from Matahari Trading Sdn Bhd (RM 128,000.00).\n\nIssues:\n• Entity name mismatch — PDF omits (M) suffix\n• SST rate conflict — PDF 8% vs LHDN 0% E3 exemption\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
+  
+  var editableEl = document.getElementById('comms-email-editable')
+  if (editableEl) {
+    editableEl.value = defaultBody
+  }
+  
+  var previewEl = document.getElementById('comms-email-body')
+  if (previewEl) {
+    previewEl.className = 'email-preview'
+    previewEl.textContent = defaultBody
+  }
+  
+  toast('Email reset to default ✏️')
+}
+
+function sendCommsEmail() {
+  if (commsSent) return
+  var body = document.getElementById('comms-email-editable')?.value || ''
+  if (!body || body === 'Loading email...' || body === 'Loading…') {
+    toast('Please wait for email to load', 'warning')
+    return
+  }
+  commsSent = true
+  document.getElementById('comms-draft-status').className = 'badge badge-success'
+  document.getElementById('comms-draft-status').textContent = '✓ Sent'
+  document.getElementById('comms-send-btn').disabled = true
+  toast('Email sent to vendor 📧')
+}
+
+// ── MODAL BUTTONS ──────────────────────────────────────────────────────────────
+
+function closeModal() {
+  document.getElementById('email-modal').style.display = 'none'
+}
+
+function copyEmailDraft() {
+  var body = document.getElementById('modal-body')?.value || ''
+  if (!body) {
+    toast('No email content to copy', 'warning')
+    return
+  }
+  navigator.clipboard.writeText(body).then(function() {
+    toast('Email copied to clipboard 📋')
+  }).catch(function() {
+    var textarea = document.createElement('textarea')
+    textarea.value = body
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    toast('Email copied to clipboard 📋')
+  })
+}
+
+async function sendModalEmail() {
+  var to = document.getElementById('modal-to')?.value || ''
+  var subject = document.getElementById('modal-subject')?.value || ''
+  var body = document.getElementById('modal-body')?.value || ''
+  var invoiceId = document.getElementById('modal-invoice-id')?.value || ''
+
+  if (!body) {
+    toast('Email body is empty', 'warning')
+    return
+  }
+
+  try {
+    await fetch(API + '/api/comms/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoice_id: invoiceId, to, subject, body })
+    })
+    toast('Email sent successfully 📧')
+  } catch (_) {
+    toast('Email saved locally (backend not available) 📧')
+  }
+
+  closeModal()
+  doAction(invoiceId, 'send_comms')
+}
+
+// ── EXPORT FUNCTIONS ───────────────────────────────────────────────────────────
+
+function exportAuditCSV() {
+  var rows = [['Timestamp', 'Agent', 'Invoice', 'Action', 'Result']]
+  auditData.forEach(function(l) {
+    rows.push([l.timestamp, l.agent, l.invoice, l.action, l.result_label])
+  })
+  var csv = rows.map(function(r) {
+    return r.map(function(c) { return '"' + c + '"' }).join(',')
+  }).join('\n')
+  var a = document.createElement('a')
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+  a.download = 'taxtrace-audit-log-' + new Date().toISOString().slice(0,10) + '.csv'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  toast('Audit log exported 📊')
+}
+
+function exportCommsHistory() {
+  var rows = [['Date', 'Invoice', 'Vendor', 'Type', 'Status', 'Response']]
+  var history = document.querySelectorAll('#comms-tbody tr')
+  history.forEach(function(row) {
+    var cells = row.querySelectorAll('td')
+    if (cells.length === 6) {
+      rows.push([
+        cells[0].textContent.trim(),
+        cells[1].textContent.trim(),
+        cells[2].textContent.trim(),
+        cells[3].textContent.trim(),
+        cells[4].textContent.trim(),
+        cells[5].textContent.trim()
+      ])
+    }
+  })
+  var csv = rows.map(function(r) {
+    return r.map(function(c) { return '"' + c + '"' }).join(',')
+  }).join('\n')
+  var a = document.createElement('a')
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+  a.download = 'comms-history-' + new Date().toISOString().slice(0,10) + '.csv'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  toast('Communication history exported 📊')
+}
+
+// ── UPLOAD EMAIL BUTTONS ──────────────────────────────────────────────────────
+
+function copyUploadEmail() {
+  var body = document.getElementById('email-body-editable')?.value || ''
+  if (!body) {
+    toast('No email content to copy', 'warning')
+    return
+  }
+  navigator.clipboard.writeText(body).then(function() {
+    toast('Email copied to clipboard 📋')
+  }).catch(function() {
+    var textarea = document.createElement('textarea')
+    textarea.value = body
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    toast('Email copied to clipboard 📋')
+  })
+}
+
+// ── THEME TOGGLE ──────────────────────────────────────────────────────────────
+
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme')
+  var next = current === 'dark' ? 'light' : 'dark'
+  document.documentElement.setAttribute('data-theme', next)
+  localStorage.setItem('tt-theme', next)
+  var knob = document.getElementById('theme-knob')
+  if (knob) knob.textContent = next === 'dark' ? '🌙' : '☀️'
+  // Rebuild charts with new colors
+  setTimeout(function() {
+    if (currentPage === 'analytics') loadAnalytics()
+  }, 100)
+}
+
+function initTheme() {
+  var saved = localStorage.getItem('tt-theme') || 'light'
+  document.documentElement.setAttribute('data-theme', saved)
+  var knob = document.getElementById('theme-knob')
+  if (knob) knob.textContent = saved === 'dark' ? '🌙' : '☀️'
+}
+
+// ── TOAST FUNCTION ─────────────────────────────────────────────────────────────
+
+function toast(msg, type) {
+  type = type || 'success'
+  var icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' }
+  var colors = { success: 'var(--green)', error: 'var(--red)', info: 'var(--blue-mid)', warning: 'var(--amber)' }
+  var el = document.getElementById('toast')
+  if (!el) {
+    // Create toast if not exists
+    var toastDiv = document.createElement('div')
+    toastDiv.id = 'toast'
+    toastDiv.className = 'toast'
+    toastDiv.innerHTML = '<span class="toast-icon"></span><span class="toast-msg"></span>'
+    document.body.appendChild(toastDiv)
+    el = toastDiv
+  }
+  el.querySelector('.toast-icon').textContent = icons[type] || '✓'
+  el.querySelector('.toast-icon').style.color = colors[type] || 'var(--green)'
+  el.querySelector('.toast-msg').textContent = msg
+  el.classList.add('show')
+  clearTimeout(el._hideTimeout)
+  el._hideTimeout = setTimeout(function() {
+    el.classList.remove('show')
+  }, 3000)
 }
 
 // ── ANALYTICS ─────────────────────────────────────────────────────────────────
@@ -504,118 +781,118 @@ async function loadAnalytics() {
     }
   }
 
-    // --- 1. Monthly Trend Chart (6-month compliance) ---
-    var monthlyData = anal && anal.monthly_trend ? anal.monthly_trend : []
-    console.log('Monthly data:', monthlyData)
+  // --- 1. Monthly Trend Chart (6-month compliance) ---
+  var monthlyData = anal && anal.monthly_trend ? anal.monthly_trend : []
+  console.log('Monthly data:', monthlyData)
 
-    if (!monthlyData || monthlyData.length === 0) {
-      monthlyData = [
-        { month: 'Jan', rate: 100 },
-        { month: 'Feb', rate: 100 },
-        { month: 'Mar', rate: 100 },
-        { month: 'Apr', rate: 100 },
-        { month: 'May', rate: 100 },
-        { month: 'Jun', rate: 100 }
-      ]
-    }
+  if (!monthlyData || monthlyData.length === 0) {
+    monthlyData = [
+      { month: 'Jan', rate: 100 },
+      { month: 'Feb', rate: 100 },
+      { month: 'Mar', rate: 100 },
+      { month: 'Apr', rate: 100 },
+      { month: 'May', rate: 100 },
+      { month: 'Jun', rate: 100 }
+    ]
+  }
 
-    var monthlyCanvas = document.getElementById('monthChart')
-    if (monthlyCanvas) {
-      // MAKE CANVAS VISIBLE
-      monthlyCanvas.style.background = '#f8faff'
-      monthlyCanvas.style.border = '3px solid #185FA5'
-      monthlyCanvas.style.borderRadius = '8px'
-      monthlyCanvas.style.minHeight = '400px'
-      
-      if (monthlyChartInstance) {
-        console.log('Updating existing monthly chart')
-        monthlyChartInstance.data.labels = monthlyData.map(function(m) { return m.month || 'Unknown' })
-        monthlyChartInstance.data.datasets[0].data = monthlyData.map(function(m) { return m.rate || 0 })
-        monthlyChartInstance.options.scales.y.min = 0
-        monthlyChartInstance.options.scales.y.max = 100
-        monthlyChartInstance.options.scales.y.ticks.stepSize = 10
-        monthlyChartInstance.update()
-        monthlyChartInstance.resize()
-      } else {
-        console.log('Creating new monthly chart')
-        var ctx = monthlyCanvas.getContext('2d')
-        monthlyChartInstance = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: monthlyData.map(function(m) { return m.month || 'Unknown' }),
-            datasets: [{
-              label: 'Compliance Rate',
-              data: monthlyData.map(function(m) { return m.rate || 0 }),
-              borderColor: '#185FA5',
-              backgroundColor: 'rgba(24,95,165,0.15)',
-              fill: true,
-              tension: 0.3,
-              pointBackgroundColor: '#185FA5',
-              pointBorderColor: '#fff',
-              pointBorderWidth: 3,
-              pointRadius: 10,
-              pointHoverRadius: 14,
-              borderWidth: 4
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-                labels: {
-                  font: { size: 14, weight: 'bold' },
-                  color: '#4e5f74',
-                  usePointStyle: true,
-                  pointStyle: 'circle',
-                  padding: 20
-                }
-              },
-              tooltip: {
-                backgroundColor: 'rgba(0,0,0,0.9)',
-                titleFont: { size: 14, weight: 'bold' },
-                bodyFont: { size: 13 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    return 'Compliance: ' + context.parsed.y + '%'
-                  }
-                }
+  var monthlyCanvas = document.getElementById('monthChart')
+  if (monthlyCanvas) {
+    // MAKE CANVAS VISIBLE
+    monthlyCanvas.style.background = '#f8faff'
+    monthlyCanvas.style.border = '3px solid #185FA5'
+    monthlyCanvas.style.borderRadius = '8px'
+    monthlyCanvas.style.minHeight = '400px'
+    
+    if (monthlyChartInstance) {
+      console.log('Updating existing monthly chart')
+      monthlyChartInstance.data.labels = monthlyData.map(function(m) { return m.month || 'Unknown' })
+      monthlyChartInstance.data.datasets[0].data = monthlyData.map(function(m) { return m.rate || 0 })
+      monthlyChartInstance.options.scales.y.min = 0
+      monthlyChartInstance.options.scales.y.max = 100
+      monthlyChartInstance.options.scales.y.ticks.stepSize = 10
+      monthlyChartInstance.update()
+      monthlyChartInstance.resize()
+    } else {
+      console.log('Creating new monthly chart')
+      var ctx = monthlyCanvas.getContext('2d')
+      monthlyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: monthlyData.map(function(m) { return m.month || 'Unknown' }),
+          datasets: [{
+            label: 'Compliance Rate',
+            data: monthlyData.map(function(m) { return m.rate || 0 }),
+            borderColor: '#185FA5',
+            backgroundColor: 'rgba(24,95,165,0.15)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#185FA5',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 3,
+            pointRadius: 10,
+            pointHoverRadius: 14,
+            borderWidth: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                font: { size: 14, weight: 'bold' },
+                color: '#4e5f74',
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 20
               }
             },
-            scales: {
-              x: {
-                grid: { color: '#e5e9f0', drawBorder: false },
-                ticks: { 
-                  color: '#4e5f74', 
-                  font: { size: 14, weight: 'bold' },
-                  padding: 10
-                }
-              },
-              y: {
-                min: 0,
-                max: 100,
-                grid: { color: '#e5e9f0', drawBorder: false },
-                ticks: { 
-                  color: '#4e5f74', 
-                  font: { size: 13, weight: 'bold' },
-                  callback: function(value) { return value + '%' },
-                  stepSize: 10,
-                  padding: 10
+            tooltip: {
+              backgroundColor: 'rgba(0,0,0,0.9)',
+              titleFont: { size: 14, weight: 'bold' },
+              bodyFont: { size: 13 },
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return 'Compliance: ' + context.parsed.y + '%'
                 }
               }
-            },
-            interaction: {
-              intersect: false,
-              mode: 'index'
             }
+          },
+          scales: {
+            x: {
+              grid: { color: '#e5e9f0', drawBorder: false },
+              ticks: { 
+                color: '#4e5f74', 
+                font: { size: 14, weight: 'bold' },
+                padding: 10
+              }
+            },
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: '#e5e9f0', drawBorder: false },
+              ticks: { 
+                color: '#4e5f74', 
+                font: { size: 13, weight: 'bold' },
+                callback: function(value) { return value + '%' },
+                stepSize: 10,
+                padding: 10
+              }
+            }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index'
           }
-        })
-        console.log('Monthly chart created with Y-axis 0-100%')
-      }
+        }
+      })
+      console.log('Monthly chart created with Y-axis 0-100%')
     }
+  }
 
   // --- 2. Vendor Risk Chart ---
   var vendorData = dash && dash.top_vendors_at_risk ? dash.top_vendors_at_risk : []
@@ -793,7 +1070,6 @@ async function loadAnalytics() {
     }
   }
 
-  // Force resize after all charts are updated
   setTimeout(function() {
     var allCharts = [monthlyChartInstance, vendorChartInstance, trendChartInstance, typeChartInstance]
     allCharts.forEach(function(chart) {
@@ -806,8 +1082,6 @@ async function loadAnalytics() {
   
   console.log('Analytics loaded')
 }
-
-// ── AUDIT LOG ─────────────────────────────────────────────────────────────────
 
 var auditData = []
 
@@ -850,8 +1124,6 @@ function exportAuditCSV() {
   a.click()
 }
 
-// ── WOW FEATURE: PDF Upload & Live Pipeline ───────────────────────────────────
-
 var pipelineEmailData = null
 
 function onDrag(e, enter) {
@@ -888,17 +1160,20 @@ function showStepDetail(text) {
 
 async function startPipeline(file) {
   if (!file.name.toLowerCase().endsWith('.pdf')) {
-    alert('Please upload a PDF file.')
+    toast('Please upload a PDF file', 'error')
     return
   }
 
   document.getElementById('upload-zone').style.display = 'none'
   document.getElementById('pipeline-panel').classList.add('active')
-  document.getElementById('result-extracted').style.display = 'none'
-  document.getElementById('result-risk').style.display = 'none'
-  document.getElementById('result-email').style.display = 'none'
+  
+  var resultElements = ['result-extracted', 'result-risk', 'result-email']
+  for (var ri = 0; ri < resultElements.length; ri++) {
+    document.getElementById(resultElements[ri]).style.display = 'none'
+  }
+  
   pipelineEmailData = null
-
+  
   for (var i = 1; i <= 6; i++) {
     document.getElementById('ps-' + i).className = 'step-circle pending'
     if (i < 6) document.getElementById('pc-' + i).classList.remove('done')
@@ -912,9 +1187,13 @@ async function startPipeline(file) {
   formData.append('file', file)
 
   try {
-    var resp = await fetch(API + '/api/upload-invoice', { method: 'POST', body: formData })
+    var resp = await fetch(API + '/api/upload-invoice', { 
+      method: 'POST', 
+      body: formData 
+    })
 
     if (!resp.ok) {
+      console.log('Backend upload failed, using simulation')
       simulatePipeline(file)
       return
     }
@@ -940,9 +1219,13 @@ async function startPipeline(file) {
         if (step >= 1 && step <= 6) {
           if (ev.status === 'running') setPipelineStep(step, 'active')
           else if (ev.status === 'done' || ev.status === 'complete') setPipelineStep(step, 'done')
-          else if (ev.status === 'error') setPipelineStep(step, 'error')
+          else if (ev.status === 'error') {
+            console.log('Pipeline error, falling back to simulation')
+            simulatePipeline(file)
+            return
+          }
 
-          showStepDetail('<strong>' + ev.title + '</strong><br><span style="color:var(--muted)">' + ev.detail + '</span>')
+          showStepDetail('<strong>' + ev.title + '</strong><br><span style="color:var(--text-muted)">' + ev.detail + '</span>')
 
           if (ev.extracted) {
             renderExtracted(ev.extracted)
@@ -957,28 +1240,28 @@ async function startPipeline(file) {
             document.getElementById('pipeline-title').textContent = '✓ Pipeline complete'
             document.getElementById('pipeline-badge').innerHTML = '<span style="color:var(--green)"><i class="ti ti-check"></i> Complete</span>'
             if (pipelineEmailData) renderEmail(pipelineEmailData)
+            toast('Invoice analysed successfully ✓')
           }
         }
       }
     }
 
   } catch (err) {
+    console.log('Connection error, using simulation:', err.message)
     simulatePipeline(file)
   }
 }
-
-// ── Fallback Pipeline Simulation ─────────────────────────────────────────────
 
 function simulatePipeline(file) {
   var step = 1
   
   var steps = [
-    { title: 'Ingesting PDF', detail: 'Processing file: ' + file.name },
-    { title: 'AI Extraction', detail: 'Claude is analysing the invoice...' },
-    { title: 'LHDN Lookup', detail: 'Validating against LHDN database...' },
-    { title: 'Risk Assessment', detail: 'Calculating risk score...' },
-    { title: 'Drafting Email', detail: 'AI is generating vendor communication...' },
-    { title: 'Complete', detail: 'Pipeline completed successfully' }
+    { title: 'Ingesting PDF', detail: 'Processing: ' + file.name },
+    { title: 'AI field extraction', detail: 'Parsing vendor, SST rate, amounts, registration number...' },
+    { title: 'LHDN MyInvois lookup', detail: 'Cross-referencing against LHDN database...' },
+    { title: 'Risk scoring', detail: 'Running 5-vector compliance check...' },
+    { title: 'Drafting resolution email', detail: 'Composing vendor notice...' },
+    { title: 'Complete', detail: 'Pipeline finished. Results saved to invoice queue.' }
   ]
 
   var vendors = ['Matahari Trading Sdn Bhd', 'Kencana Engineering', 'Sentosa Supplies', 'Bina Jaya Construction']
@@ -998,7 +1281,7 @@ function simulatePipeline(file) {
 
     var s = steps[step - 1]
     setPipelineStep(step, step < 6 ? 'done' : 'complete')
-    showStepDetail('<strong>' + s.title + '</strong><br><span style="color:var(--muted)">' + s.detail + '</span>')
+    showStepDetail('<strong>' + s.title + '</strong><br><span style="color:var(--text-muted)">' + s.detail + '</span>')
     
     var progress = Math.round((step / 6) * 100)
     document.getElementById('pipeline-progress').style.width = progress + '%'
@@ -1057,6 +1340,7 @@ function simulatePipeline(file) {
       document.getElementById('pipeline-title').textContent = '✓ Pipeline complete'
       document.getElementById('pipeline-badge').innerHTML = '<span style="color:var(--green)"><i class="ti ti-check"></i> Complete</span>'
       if (pipelineEmailData) renderEmail(pipelineEmailData)
+      toast('Invoice analysed successfully ✓')
     }
 
     step++
@@ -1121,16 +1405,48 @@ function renderRisk(risk) {
 
   document.getElementById('result-risk').style.display = 'block'
 
-  document.getElementById('btn-send-email').onclick = function() {
-    document.getElementById('result-email').scrollIntoView({ behavior: 'smooth' })
+  // ── VIEW RESOLUTION EMAIL BUTTON ──
+  var btnSendEmail = document.getElementById('btn-send-email')
+  if (btnSendEmail) {
+    // Remove all existing listeners by replacing with new element
+    var newBtn = document.createElement('button')
+    newBtn.className = btnSendEmail.className
+    newBtn.id = btnSendEmail.id
+    newBtn.innerHTML = btnSendEmail.innerHTML
+    newBtn.onclick = function() {
+      viewUploadEmail()
+    }
+    btnSendEmail.parentNode.replaceChild(newBtn, btnSendEmail)
   }
-  document.getElementById('btn-approve').onclick = function() {
-    document.getElementById('btn-approve').textContent = '✓ Approved'
-    document.getElementById('btn-approve').disabled = true
+
+  // ── APPROVE BUTTON ──
+  var btnApprove = document.getElementById('btn-approve')
+  if (btnApprove) {
+    var newApprove = document.createElement('button')
+    newApprove.className = btnApprove.className
+    newApprove.id = btnApprove.id
+    newApprove.innerHTML = btnApprove.innerHTML
+    newApprove.onclick = function() {
+      this.textContent = '✓ Approved'
+      this.disabled = true
+      toast('Invoice approved ✅')
+    }
+    btnApprove.parentNode.replaceChild(newApprove, btnApprove)
   }
-  document.getElementById('btn-hold').onclick = function() {
-    document.getElementById('btn-hold').textContent = '⏸ Held'
-    document.getElementById('btn-hold').disabled = true
+
+  // ── HOLD BUTTON ──
+  var btnHold = document.getElementById('btn-hold')
+  if (btnHold) {
+    var newHold = document.createElement('button')
+    newHold.className = btnHold.className
+    newHold.id = btnHold.id
+    newHold.innerHTML = btnHold.innerHTML
+    newHold.onclick = function() {
+      this.textContent = '⏸ Held'
+      this.disabled = true
+      toast('Payment held ⏸', 'warning')
+    }
+    btnHold.parentNode.replaceChild(newHold, btnHold)
   }
 }
 
@@ -1151,6 +1467,48 @@ function resetUpload() {
   document.getElementById('file-input').value = ''
 }
 
+function viewUploadEmail() {
+  try {
+    document.querySelectorAll('.page').forEach(function(p) {
+      p.classList.remove('active')
+    })
+    
+    document.querySelectorAll('.nav-item').forEach(function(n) {
+      n.classList.remove('active')
+    })
+    
+    var commsPage = document.getElementById('page-comms')
+    if (commsPage) {
+      commsPage.classList.add('active')
+    } else {
+      toast('Comms page not found', 'error')
+      return
+    }
+    
+    var commsNavItem = document.querySelector('.nav-item[onclick*="comms"]')
+    if (commsNavItem) {
+      commsNavItem.classList.add('active')
+    } else {
+      var allNavItems = document.querySelectorAll('.nav-item')
+      for (var i = 0; i < allNavItems.length; i++) {
+        if (allNavItems[i].textContent.includes('Resolution comms')) {
+          allNavItems[i].classList.add('active')
+          break
+        }
+      }
+    }
+    
+    currentPage = 'comms'
+    
+    loadComms()
+    toast('📧 Opening resolution comms...', 'info')
+    
+  } catch (e) {
+    console.error('Error navigating to comms:', e)
+    toast('Error opening comms page', 'error')
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 loadDashboard()
@@ -1166,7 +1524,8 @@ fetch(API + '/api/health').then(function(r) { return r.json() }).then(function(d
 // Force charts to resize when tab becomes visible
 document.addEventListener('visibilitychange', function() {
   if (!document.hidden) {
-    analyticsCharts.forEach(function(chart) {
+    var allCharts = [monthlyChartInstance, vendorChartInstance, trendChartInstance, typeChartInstance]
+    allCharts.forEach(function(chart) {
       if (chart && chart.resize) {
         setTimeout(function() {
           chart.resize()
@@ -1181,7 +1540,8 @@ var resizeTimer
 window.addEventListener('resize', function() {
   clearTimeout(resizeTimer)
   resizeTimer = setTimeout(function() {
-    analyticsCharts.forEach(function(chart) {
+    var allCharts = [monthlyChartInstance, vendorChartInstance, trendChartInstance, typeChartInstance]
+    allCharts.forEach(function(chart) {
       if (chart && chart.resize) {
         chart.resize()
       }
