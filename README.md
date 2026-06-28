@@ -10,7 +10,7 @@
 
 The complete pitch deck for TaxTrace is available here:
 
-📄 [TaxTrace Pitch Deck](./TaxTrace_PitchDeck-NexHack2026.pdf)
+📄 [TaxTrace Pitch Deck](TaxTrace_PitchDeck-NexHack2026.pdf)
 
 ---
 
