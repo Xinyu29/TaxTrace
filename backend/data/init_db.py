@@ -32,7 +32,6 @@ def seed_data(db):
     print("Seeding 30 days of mock data with REAL risk scoring...")
     today = datetime.utcnow()
     
-    # Initialize validators for consistent scoring
     lhdn_validator = LHDNValidator()
     risk_scorer = RiskScorer()
     
@@ -42,32 +41,26 @@ def seed_data(db):
         
         for _ in range(num_invoices):
             vendor = random.choice(vendors)
-            
-            # For demo consistency, ensure some known good/bad vendors
+     
             if random.random() < 0.1:  # 10% chance of suspicious vendor
                 vendor = random.choice(KNOWN_BAD)
             elif random.random() < 0.3:  # 30% chance of known good
                 vendor = random.choice(KNOWN_GOOD)
             
-            # Generate invoice data with more realistic patterns
             amount = random.randint(1000, 200000)
-            
-            # Sometimes create obvious issues for demo purposes
-            # 20% chance of invalid SST rate
+
             if random.random() < 0.2:
                 sst_rate = random.choice(['3%', '10%', '12%'])  # Invalid rates
             else:
                 sst_rate = random.choice(['0%', '8%', '6%'])
             
             invoice_no = f'INV-{date.strftime("%Y%m")}-{random.randint(100, 999)}'
-            
-            # 20% chance of missing registration number
+
             if random.random() < 0.2:
                 reg_no = ''
             else:
                 reg_no = f'REG-{random.randint(100000, 999999)}'
             
-            # Create extracted data structure
             extracted_data = {
                 'vendor_name': vendor,
                 'invoice_no': invoice_no,
@@ -79,11 +72,9 @@ def seed_data(db):
                 'address': f'{random.randint(1, 999)} Jalan {random.choice(["Kuala", "Petaling", "Setia"])}'
             }
             
-            # Use REAL validation and risk scoring (NOT random!)
             lhdn_result = lhdn_validator.validate_invoice(extracted_data)
             risk_result = risk_scorer.assess_risk(extracted_data, lhdn_result)
             
-            # Create invoice with REAL scored data
             invoice = Invoice(
                 id=str(uuid.uuid4())[:8],
                 vendor=vendor,
@@ -107,9 +98,7 @@ def seed_data(db):
             )
             db.session.add(invoice)
             
-            # Generate a communication for flagged invoices
             if invoice.agent_status in ['minor_flag', 'high_risk']:
-                # Create communication
                 comm = Communication(
                     invoice_id=invoice.id,
                     vendor=vendor,

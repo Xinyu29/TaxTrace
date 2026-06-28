@@ -23,15 +23,12 @@ class AIEngine:
                 print("No text extracted from PDF")
                 return self._extract_with_regex("")
             
-            # Try Gemini first if available
             if self.gemini_api_key:
                 try:
                     return self._extract_with_gemini(text)
                 except Exception as e:
                     print(f"Gemini API error: {e}")
-                    # Fall through to Claude or regex
-            
-            # Try Claude if available
+
             if self.api_key:
                 try:
                     return self._extract_with_claude(text)
@@ -67,14 +64,12 @@ class AIEngine:
             response = model.generate_content(prompt)
             raw_text = response.text.strip()
             
-            # Clean markdown code fences if present
             if raw_text.startswith('```'):
                 raw_text = raw_text.strip('`')
                 if raw_text.startswith('json'):
                     raw_text = raw_text[4:].strip()
             
             result = json.loads(raw_text)
-            # Ensure all keys exist
             required_keys = ['vendor_name', 'invoice_no', 'invoice_date', 'reg_no', 'sst_id', 'amount', 'sst_rate', 'address']
             for key in required_keys:
                 if key not in result:
@@ -111,14 +106,12 @@ class AIEngine:
             
             raw_text = response.content[0].text.strip()
             
-            # Clean markdown code fences if present
             if raw_text.startswith('```'):
                 raw_text = raw_text.strip('`')
                 if raw_text.startswith('json'):
                     raw_text = raw_text[4:].strip()
             
             result = json.loads(raw_text)
-            # Ensure all keys exist
             required_keys = ['vendor_name', 'invoice_no', 'invoice_date', 'reg_no', 'sst_id', 'amount', 'sst_rate', 'address']
             for key in required_keys:
                 if key not in result:

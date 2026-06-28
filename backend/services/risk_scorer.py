@@ -60,7 +60,6 @@ class RiskScorer:
                     'status': 'error'
                 })
             else:
-                # Unknown vendor - moderate risk
                 comparison.append({
                     'field': 'Vendor Name',
                     'pdf': vendor,
@@ -223,12 +222,11 @@ class RiskScorer:
         # Cap risk score at 10
         risk_score = min(risk_score, 10.0)
         
-        # FIXED THRESHOLDS - More strict
-        if risk_score >= 6.0:  # Changed from 7.0 to 6.0
+        if risk_score >= 6.0:
             agent_status = 'high_risk'
             flag_type = 'Multiple serious discrepancies'
             capital_at_risk = amount
-        elif risk_score >= 3.0:  # Changed from 4.0 to 3.0
+        elif risk_score >= 3.0:
             agent_status = 'minor_flag'
             flag_type = 'Minor discrepancies detected'
             capital_at_risk = amount * 0.3

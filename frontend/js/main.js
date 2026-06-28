@@ -423,7 +423,6 @@ async function loadComms() {
   }
   document.getElementById('comms-tbody').innerHTML = historyHtml
 
-  // Load AI draft email with fallback
   var email = null
   try {
     var resp = await fetch(API + '/api/comms/draft', {
@@ -446,19 +445,16 @@ async function loadComms() {
     console.log('Email draft not available (backend not running)')
   }
 
-  // Update the editable email body
   var editableEl = document.getElementById('comms-email-editable')
   if (editableEl) {
     if (email && email.body) {
       editableEl.value = email.body
-      // Also update the preview for compatibility
       var previewEl = document.getElementById('comms-email-body')
       if (previewEl) {
         previewEl.className = 'email-preview'
         previewEl.textContent = email.body
       }
     } else {
-      // Use fallback email
       var fallbackBody = 'Dear Finance Team,\n\nRE: Invoice MT-2026-0891 - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from Matahari Trading Sdn Bhd (RM 128,000.00).\n\nIssues:\n• Entity name mismatch — PDF omits (M) suffix\n• SST rate conflict — PDF 8% vs LHDN 0% E3 exemption\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
       
       editableEl.value = fallbackBody
@@ -486,7 +482,6 @@ function copyCommsEmail() {
   navigator.clipboard.writeText(body).then(function() {
     toast('Email copied to clipboard')
   }).catch(function() {
-    // Fallback for browsers without clipboard API
     var textarea = document.createElement('textarea')
     textarea.value = body
     document.body.appendChild(textarea)
@@ -502,7 +497,6 @@ function resetCommsEmail() {
   document.getElementById('comms-draft-status').className = 'badge badge-warning'
   document.getElementById('comms-draft-status').textContent = 'Awaiting approval'
   document.getElementById('comms-send-btn').disabled = false
-  // Reload the email content
   loadComms()
 }
 
@@ -525,7 +519,6 @@ function copyCommsEmail() {
   navigator.clipboard.writeText(body).then(function() {
     toast('Email copied to clipboard 📋')
   }).catch(function() {
-    // Fallback
     var textarea = document.createElement('textarea')
     textarea.value = body
     document.body.appendChild(textarea)
@@ -542,7 +535,6 @@ function resetCommsEmail() {
   document.getElementById('comms-draft-status').textContent = 'Awaiting approval'
   document.getElementById('comms-send-btn').disabled = false
   
-  // Reset to default email
   var defaultBody = 'Dear Finance Team,\n\nRE: Invoice MT-2026-0891 - Compliance Discrepancy Notice\n\nWe have identified discrepancies in the invoice from Matahari Trading Sdn Bhd (RM 128,000.00).\n\nIssues:\n• Entity name mismatch — PDF omits (M) suffix\n• SST rate conflict — PDF 8% vs LHDN 0% E3 exemption\n\nAction Required:\n1. Please review the discrepancies and verify with the vendor\n2. Request corrected invoice if necessary\n\nBest regards,\nTaxTrace AI Audit System'
   
   var editableEl = document.getElementById('comms-email-editable')
@@ -701,7 +693,6 @@ function toggleTheme() {
   localStorage.setItem('tt-theme', next)
   var knob = document.getElementById('theme-knob')
   if (knob) knob.textContent = next === 'dark' ? '🌙' : '☀️'
-  // Rebuild charts with new colors
   setTimeout(function() {
     if (currentPage === 'analytics') loadAnalytics()
   }, 100)
@@ -722,7 +713,6 @@ function toast(msg, type) {
   var colors = { success: 'var(--green)', error: 'var(--red)', info: 'var(--blue-mid)', warning: 'var(--amber)' }
   var el = document.getElementById('toast')
   if (!el) {
-    // Create toast if not exists
     var toastDiv = document.createElement('div')
     toastDiv.id = 'toast'
     toastDiv.className = 'toast'
@@ -798,7 +788,6 @@ async function loadAnalytics() {
 
   var monthlyCanvas = document.getElementById('monthChart')
   if (monthlyCanvas) {
-    // MAKE CANVAS VISIBLE
     monthlyCanvas.style.background = '#f8faff'
     monthlyCanvas.style.border = '3px solid #185FA5'
     monthlyCanvas.style.borderRadius = '8px'
@@ -1408,7 +1397,6 @@ function renderRisk(risk) {
   // ── VIEW RESOLUTION EMAIL BUTTON ──
   var btnSendEmail = document.getElementById('btn-send-email')
   if (btnSendEmail) {
-    // Remove all existing listeners by replacing with new element
     var newBtn = document.createElement('button')
     newBtn.className = btnSendEmail.className
     newBtn.id = btnSendEmail.id
@@ -1521,7 +1509,6 @@ fetch(API + '/api/health').then(function(r) { return r.json() }).then(function(d
 
 // ── Fix chart resizing ─────────────────────────────────────────────────────────
 
-// Force charts to resize when tab becomes visible
 document.addEventListener('visibilitychange', function() {
   if (!document.hidden) {
     var allCharts = [monthlyChartInstance, vendorChartInstance, trendChartInstance, typeChartInstance]
@@ -1535,7 +1522,6 @@ document.addEventListener('visibilitychange', function() {
   }
 })
 
-// Also resize on window resize
 var resizeTimer
 window.addEventListener('resize', function() {
   clearTimeout(resizeTimer)
@@ -1556,7 +1542,6 @@ var originalNav = nav;
 nav = function(id, el) {
   originalNav(id, el);
   
-  // If navigating to analytics, force a reload after a short delay
   if (id === 'analytics') {
     setTimeout(function() {
       console.log('Forcing analytics reload...');
@@ -1565,15 +1550,12 @@ nav = function(id, el) {
   }
 };
 
-// Also load analytics when page first loads
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, preloading analytics...');
   setTimeout(function() {
     loadAnalytics();
   }, 500);
 });
-
-// ── Also expose loadAnalytics to window for manual testing ──────────────────
 
 window.loadAnalytics = loadAnalytics;
 window.loadDashboard = loadDashboard;

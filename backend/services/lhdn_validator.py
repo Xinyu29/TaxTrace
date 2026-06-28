@@ -18,7 +18,6 @@ class LHDNValidator:
         sst_rate = extracted.get('sst_rate', '0%')
         amount = extracted.get('amount', 0)
         
-        # Start with default response
         response = {
             'status': 'validated',
             'invoice_no': invoice_no,
@@ -29,9 +28,6 @@ class LHDNValidator:
             'warnings': [],
             'errors': []
         }
-        
-        # DETERMINISTIC VALIDATION LOGIC - Not random!
-        # These checks are consistent and reproducible
         
         # Check 1: Registration number format
         if not reg_no or len(reg_no) < 5:

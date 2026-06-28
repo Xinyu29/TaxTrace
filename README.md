@@ -1,7 +1,16 @@
 # TaxTrace · AI Invoice Compliance Audit System
 
 > Built for **NexHack 2026 - Track 2: Fintech Risk & Fraud Intelligence**
+
 > ⚡ *Turn invoices into intelligence — detect financial risk before it becomes loss.*
+
+---
+
+## Pitch Deck
+
+The complete pitch deck for TaxTrace is available here:
+
+📄 [TaxTrace Pitch Deck](./TaxTrace_PitchDeck-NexHack2026.pdf)
 
 ---
 

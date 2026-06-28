@@ -29,7 +29,6 @@ def draft_email():
     }
     email = ai_engine.draft_email(extracted, issues)
     
-    # Save to database if invoice_id is provided
     invoice_id = data.get('invoice_id')
     if invoice_id:
         comm = Communication(
